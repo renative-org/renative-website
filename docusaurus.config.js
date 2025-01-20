@@ -4,6 +4,41 @@
 const lightCodeTheme = require('prism-react-renderer').themes.github;
 const darkCodeTheme = require('prism-react-renderer').themes.dracula;
 
+const fs = require('fs');
+const path = require('path');
+
+const updateTsconfig = (dtsFiles) => {
+    const tsconfigPath = path.resolve('tsconfig.typedoc.json');
+    const tsconfig = JSON.parse(fs.readFileSync(tsconfigPath, 'utf-8'));
+    tsconfig.include = Array.from(new Set([...tsconfig.include, ...dtsFiles]));
+    fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 4), 'utf-8');
+    console.log('tsconfig.typedoc.json successfully updated with the following files:');
+};
+
+const findDtsFiles = (dir, skipFolders = []) => {
+    const dtsFiles = [];
+    const scanDirectory = (currentDir) => {
+        const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(currentDir, entry.name);
+
+            if (entry.isDirectory() && skipFolders.includes(entry.name)) {
+                continue;
+            }
+            if (entry.isDirectory()) {
+                scanDirectory(fullPath);
+            } else if (entry.isFile() && entry.name.endsWith('.d.ts') && entry.name !== 'types.d.ts') {
+                dtsFiles.push(fullPath);
+            }
+        }
+    };
+    scanDirectory(dir);
+    if (dtsFiles.length) {
+        updateTsconfig(dtsFiles);
+    }
+    return dtsFiles;
+};
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
     title: 'ReNative',
@@ -41,6 +76,7 @@ const config = {
                 frontmatter: {
                     sidebar_label: '@rnv/core (Node)',
                 },
+                skipErrorChecking: true,
                 plugin: ['typedoc-plugin-zod'],
                 // watch: true,
             },
@@ -53,6 +89,7 @@ const config = {
                 tsconfig: './tsconfig.typedoc.json',
                 out: 'api/node/renative',
                 // watch: true,
+                skipErrorChecking: true,
                 frontmatter: {
                     sidebar_label: '@rnv/renative (Node)',
                 },
@@ -61,15 +98,15 @@ const config = {
         // [
         //     'docusaurus-plugin-typedoc',
         //     {
-        //         id: 'api-rnv',
-        //         entryPoints: ['node_modules/rnv/lib/index.d.ts'],
+        //         id: 'api-engine-core',
+        //         entryPoints: [...findDtsFiles('node_modules/@rnv/engine-core/lib/tasks', ['bootstrap'])],
         //         tsconfig: './tsconfig.typedoc.json',
-        //         out: 'api/node/rnv',
-        //         // watch: true,
+        //         out: 'api/node/rnv-engine-core',
 
         //         frontmatter: {
-        //             sidebar_label: 'rnv (Node)',
+        //             sidebar_label: '@rnv/engine-core (Node)',
         //         },
+        //         skipErrorChecking: true,
         //     },
         // ],
     ],
